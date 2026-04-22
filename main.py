@@ -3,12 +3,17 @@ from flask import Flask, request
 from telegram import Bot
 from fpdf import FPDF
 
+# ------------------ CONFIG ------------------
 TOKEN = os.getenv("TOKEN")
-bot = Bot(token=TOKEN)
 
+if not TOKEN:
+    raise ValueError("Missing TOKEN environment variable")
+
+bot = Bot(token=TOKEN)
 app = Flask(__name__)
 
-# ---------- PDF TOOL ----------
+
+# ------------------ PDF TOOL ------------------
 def create_pdf(text):
     pdf = FPDF()
     pdf.add_page()
@@ -22,41 +27,57 @@ def create_pdf(text):
     return filename
 
 
-# ---------- SIMPLE AGENT ----------
+# ------------------ SIMPLE AGENT LOGIC ------------------
 def agent_logic(user_input):
-
     return f"""
-REPORT ON: {user_input}
+REPORT: {user_input}
 
 1. Introduction
-This document explains {user_input}.
+This report is about {user_input}.
 
 2. Key Points
 - Overview of the topic
-- Real-world applications
-- Important insights
+- Main applications
+- Key insights
 
 3. Conclusion
 Summary of {user_input}.
 """
 
 
-# ---------- TELEGRAM WEBHOOK ----------
+# ------------------ TELEGRAM WEBHOOK ------------------
 @app.route(f"/{TOKEN}", methods=["POST"])
 def telegram_webhook():
     data = request.get_json()
 
+    if "message" not in data:
+        return "no message", 200
+
     chat_id = data["message"]["chat"]["id"]
-    text = data["message"]["text"]
+    text = data["message"].get("text", "")
 
+    if not text:
+        return "no text", 200
+
+    # Agent step
     result = agent_logic(text)
-    pdf = create_pdf(result)
 
-    bot.send_document(chat_id, open(pdf, "rb"))
+    # PDF generation
+    pdf_file = create_pdf(result)
 
-    return "ok"
+    # Send file back
+    with open(pdf_file, "rb") as f:
+        bot.send_document(chat_id=chat_id, document=f)
+
+    return "ok", 200
 
 
+# ------------------ HEALTH CHECK ------------------
 @app.route("/")
 def home():
-    return "AI Agent Running"
+    return "Telegram AI Agent is running", 200
+
+
+# ------------------ RUN (FOR LOCAL ONLY) ------------------
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))

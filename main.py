@@ -46,7 +46,8 @@ Summary of {user_input}.
 
 
 # ------------------ TELEGRAM WEBHOOK ------------------
-@app.route(f"/{TOKEN}", methods=["POST"])
+#@app.route(f"/{TOKEN}", methods=["POST"])
+@app.route("/", methods=["POST"])
 def telegram_webhook():
     data = request.get_json()
 
